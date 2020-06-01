@@ -27,7 +27,7 @@ library
       Prometheus.Metric.GHC
       Prometheus.Metric.GHC.Internal
   build-depends:
-      base               >=4.7 && <5
+      base               >=4.11 && <5
     , prometheus-client  >=1.0.0 && <1.1
     , utf8-string        >=0.3
     , text
@@ -40,6 +40,6 @@ test-suite doctest
   ghc-options:          -Wall
   main-is:              doctest.hs
   build-depends:
-      base               >=4.7 && <5
+      base               >=4.11 && <5
     , doctest
     , prometheus-client
