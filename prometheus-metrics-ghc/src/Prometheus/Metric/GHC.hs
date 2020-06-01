@@ -1,3 +1,4 @@
+{-# LANGUAGE ForeignFunctionInterface #-}
 {-# language OverloadedStrings #-}
 {-# language CPP #-}
 {-# language NumDecimals #-}
@@ -14,6 +15,7 @@ module Prometheus.Metric.GHC (
     GHCMetrics
 ,   ghcMetrics
 ,   ghcMetricsWithLabels
+,   setGCHook
 ) where
 
 #if __GLASGOW_HASKELL__ < 710
@@ -351,3 +353,8 @@ showCollector name help sampleType value labels = do
     let info = Info name help
     let valueBS = BS.fromString $ show value
     return [SampleGroup info sampleType [Sample name labels valueBS]]
+
+foreign import ccall "set_extra_gc_hook" setGCHook :: IO ()
+
+
+
