@@ -49,13 +49,14 @@ ghcMetricsWithLabels labels = Metric (do
         stats <-
             getRTSStats
         extra <- getExtraStats
-        pure $ map (\f -> f labels stats) ghcCollectors
+        pure $ ghcCollectors labels stats
     )
   else return (GHCMetrics, return [])
   )
 
-ghcCollectors :: [LabelPairs -> RTSStats -> SampleGroup]
-ghcCollectors = [
+
+ghcCollectors :: LabelPairs -> RTSStats -> [SampleGroup]
+ghcCollectors labels rtsStats = [
       statsCollector
             "ghc_gcs_total"
             "Total number of GCs"
@@ -216,15 +217,15 @@ ghcCollectors = [
             GaugeType
             (rtsTimeToSeconds . gcdetails_elapsed_ns . gc)
   ]
+  where
+    statsCollector :: Show a
+               => Text -> Text -> SampleType -> (RTSStats -> a) -> SampleGroup
+    statsCollector name help sampleType stat =
+       showCollector name help sampleType (stat rtsStats) labels
 
 -- | Convert from 'RtsTime' (nanoseconds) to seconds with nanosecond precision.
 rtsTimeToSeconds :: Stats.RtsTime -> Fixed E9
 rtsTimeToSeconds = (/ 1e9) . fromIntegral
-
-statsCollector :: Show a
-               => Text -> Text -> SampleType -> (RTSStats -> a) -> LabelPairs -> RTSStats -> SampleGroup
-statsCollector name help sampleType stat labels rtsStats =
-    showCollector name help sampleType (stat rtsStats) labels
 
 showCollector :: Show a => Text -> Text -> SampleType -> a -> LabelPairs -> SampleGroup
 showCollector name help sampleType value labels =
