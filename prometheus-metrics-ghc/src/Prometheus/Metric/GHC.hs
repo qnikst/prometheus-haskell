@@ -1,4 +1,5 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# language OverloadedStrings #-}
 {-# language CPP #-}
 {-# language NumDecimals #-}
@@ -18,22 +19,13 @@ module Prometheus.Metric.GHC (
 ,   setGCHook
 ) where
 
-#if __GLASGOW_HASKELL__ < 710
-import Control.Applicative ((<$>))
-#endif
 import qualified Data.ByteString.UTF8 as BS
-import Data.Text (Text)
+import Data.Text (Text, pack)
 import Data.Fixed (Fixed, E9)
-#if __GLASGOW_HASKELL__ < 804
-import GHC.Conc (numSparks, getNumCapabilities)
-import GHC.Stats (GCStats(..), getGCStatsEnabled, getGCStats)
-#else
-import GHC.Stats (RTSStats(..), GCDetails(..), getRTSStatsEnabled, getRTSStats)
-#endif
+import GHC.Stats (RTSStats(..), getRTSStatsEnabled, getRTSStats)
 import qualified GHC.Stats as Stats
 import Prometheus
 import Prometheus.Metric.GHC.Internal
-
 
 data GHCMetrics = GHCMetrics
 
@@ -45,18 +37,89 @@ ghcMetricsWithLabels labels = Metric (do
   statsEnabled <-
     getRTSStatsEnabled
   if statsEnabled
-  then return (GHCMetrics, do
-        stats <-
-            getRTSStats
+  then do
+    setGCHook
+    return (GHCMetrics, do
+        stats <- getRTSStats
         extra <- getExtraStats
+        clearExtraData 
         pure $ ghcCollectors labels stats
-    )
+          <> concat (zipWith (gcDetails labels) [0..] extra))
   else return (GHCMetrics, return [])
   )
 
 
+gcDetails :: LabelPairs -> Int -> GCExtra -> [SampleGroup]
+gcDetails labels gen GCExtra{..} = 
+    [ statsCollector
+            "ghc_gcdetails_allocated_bytes"
+            "Number of bytes allocated since the previous GC"
+            GaugeType
+            gcdetails_allocated_bytes
+    , statsCollector
+            "ghc_gcdetails_live_bytes"
+            "Total amount of live data in the heap (including large + compact data)"
+            GaugeType
+            gcdetails_live_bytes
+    , statsCollector
+            "ghc_gcdetails_large_objects_bytes"
+            "Total amount of live data in large objects"
+            GaugeType
+            gcdetails_large_objects_bytes
+    , statsCollector
+            "ghc_gcdetails_compact_bytes"
+            "Total amount of live data in compact regions"
+            GaugeType
+            gcdetails_compact_bytes
+    , statsCollector
+            "ghc_gcdetails_slop_bytes"
+            "Total amount of slop (wasted memory)"
+            GaugeType
+            gcdetails_slop_bytes
+    , statsCollector
+            "ghc_gcdetails_mem_in_use_bytes"
+            "Total amount of memory in use by the RTS"
+            CounterType
+            gcdetails_mem_in_use_bytes
+    , statsCollector
+            "ghc_gcdetails_copied_bytes"
+            "Total amount of data copied during this GC"
+            GaugeType
+            gcdetails_copied_bytes
+    , statsCollector
+            "ghc_gcdetails_par_max_copied_bytes"
+            "In parallel GC, the max amount of data copied by any one thread"
+            GaugeType
+            gcdetails_par_max_copied_bytes
+    , statsCollector
+            "ghc_gcdetails_sync_elapsed_seconds"
+            "The time elapsed during synchronisation before GC"
+            GaugeType
+            (rtsTimeToSeconds gcdetails_sync_elapsed_ns)
+    , statsCollector
+            "ghc_gcdetails_cpu_seconds"
+            "The CPU time used during GC itself"
+            GaugeType
+            (rtsTimeToSeconds gcdetails_cpu_ns)
+    , statsCollector
+            "ghc_gcdetails_elapsed_seconds"
+            "The time elapsed during GC itself"
+            GaugeType
+            (rtsTimeToSeconds gcdetails_elapsed_ns)
+    , statsCollector
+            "ghc_gcdetails_elapsed_seconds"
+            "The time elapsed during GC itself"
+            GaugeType
+            (rtsTimeToSeconds total_sync_elapsed_ns)
+    ]
+  where
+    statsCollector :: Show a
+               => Text -> Text -> SampleType -> a -> SampleGroup
+    statsCollector = showCollector (("gen", pack (show gen)):labels)
+
+
 ghcCollectors :: LabelPairs -> RTSStats -> [SampleGroup]
-ghcCollectors labels rtsStats = [
+ghcCollectors labels RTSStats{..} = [
       statsCollector
             "ghc_gcs_total"
             "Total number of GCs"
@@ -121,119 +184,47 @@ ghcCollectors labels rtsStats = [
             "ghc_mutator_cpu_seconds_total"
             "Total CPU time used by the mutator"
             CounterType
-            (rtsTimeToSeconds . mutator_cpu_ns)
+            (rtsTimeToSeconds mutator_cpu_ns)
     , statsCollector
             "ghc_mutator_elapsed_seconds_total"
             "Total elapsed time used by the mutator"
             CounterType
-            (rtsTimeToSeconds . mutator_elapsed_ns)
+            (rtsTimeToSeconds mutator_elapsed_ns)
     , statsCollector
             "ghc_gc_cpu_seconds_total"
             "Total CPU time used by the GC"
             CounterType
-            (rtsTimeToSeconds . gc_cpu_ns)
+            (rtsTimeToSeconds gc_cpu_ns)
     , statsCollector
             "ghc_gc_elapsed_seconds_total"
             "Total elapsed time used by the GC"
             CounterType
-            (rtsTimeToSeconds . gc_elapsed_ns)
+            (rtsTimeToSeconds gc_elapsed_ns)
     , statsCollector
             "ghc_cpu_seconds_total"
             "Total CPU time (at the previous GC)"
             CounterType
-            (rtsTimeToSeconds . cpu_ns)
+            (rtsTimeToSeconds cpu_ns)
     , statsCollector
             "ghc_elapsed_seconds_total"
             "Total elapsed time (at the previous GC)"
             CounterType
-            (rtsTimeToSeconds . elapsed_ns)
-
-    , statsCollector
-            "ghc_gcdetails_gen"
-            "The generation number of this GC"
-            HistogramType -- TODO: is this correct?
-                          -- Gauge makes little sense here.
-                          -- With Histogram we'll be able to see which
-                          -- generations are collected most often.
-            (gcdetails_gen . gc)
-    , statsCollector
-            "ghc_gcdetails_threads"
-            "Number of threads used in this GC"
-            GaugeType
-            (gcdetails_threads . gc)
-    , statsCollector
-            "ghc_gcdetails_allocated_bytes"
-            "Number of bytes allocated since the previous GC"
-            GaugeType -- TODO: this doesn't seem very meaningful.
-            (gcdetails_allocated_bytes . gc)
-    , statsCollector
-            "ghc_gcdetails_live_bytes"
-            "Total amount of live data in the heap (including large + compact data)"
-            GaugeType
-            (gcdetails_live_bytes . gc)
-    , statsCollector
-            "ghc_gcdetails_large_objects_bytes"
-            "Total amount of live data in large objects"
-            GaugeType
-            (gcdetails_large_objects_bytes . gc)
-    , statsCollector
-            "ghc_gcdetails_compact_bytes"
-            "Total amount of live data in compact regions"
-            GaugeType
-            (gcdetails_compact_bytes . gc)
-    , statsCollector
-            "ghc_gcdetails_slop_bytes"
-            "Total amount of slop (wasted memory)"
-            GaugeType
-            (gcdetails_slop_bytes . gc)
-    , statsCollector
-            "ghc_gcdetails_mem_in_use_bytes"
-            "Total amount of memory in use by the RTS"
-            CounterType
-            (gcdetails_mem_in_use_bytes . gc)
-    , statsCollector
-            "ghc_gcdetails_copied_bytes"
-            "Total amount of data copied during this GC"
-            GaugeType -- TODO: this will also vary wildly between GCs of different generations.
-            (gcdetails_copied_bytes . gc)
-    , statsCollector
-            "ghc_gcdetails_par_max_copied_bytes"
-            "In parallel GC, the max amount of data copied by any one thread"
-            GaugeType
-            (gcdetails_par_max_copied_bytes . gc)
-    , statsCollector
-            "ghc_gcdetails_sync_elapsed_seconds"
-            "The time elapsed during synchronisation before GC"
-            GaugeType
-            (rtsTimeToSeconds . gcdetails_sync_elapsed_ns . gc)
-    , statsCollector
-            "ghc_gcdetails_cpu_seconds"
-            "The CPU time used during GC itself"
-            GaugeType
-            (rtsTimeToSeconds . gcdetails_cpu_ns . gc)
-    , statsCollector
-            "ghc_gcdetails_elapsed_seconds"
-            "The time elapsed during GC itself"
-            GaugeType
-            (rtsTimeToSeconds . gcdetails_elapsed_ns . gc)
+            (rtsTimeToSeconds elapsed_ns)
   ]
   where
-    statsCollector :: Show a
-               => Text -> Text -> SampleType -> (RTSStats -> a) -> SampleGroup
-    statsCollector name help sampleType stat =
-       showCollector name help sampleType (stat rtsStats) labels
+    statsCollector :: Show a => Text -> Text -> SampleType -> a -> SampleGroup
+    statsCollector = showCollector labels 
 
 -- | Convert from 'RtsTime' (nanoseconds) to seconds with nanosecond precision.
 rtsTimeToSeconds :: Stats.RtsTime -> Fixed E9
 rtsTimeToSeconds = (/ 1e9) . fromIntegral
 
-showCollector :: Show a => Text -> Text -> SampleType -> a -> LabelPairs -> SampleGroup
-showCollector name help sampleType value labels =
+showCollector :: Show a => LabelPairs -> Text -> Text -> SampleType -> a -> SampleGroup
+showCollector labels name help sampleType value =
     let info = Info name help
         valueBS = BS.fromString $ show value
     in SampleGroup info sampleType [Sample name labels valueBS]
 
 foreign import ccall "set_extra_gc_hook" setGCHook :: IO ()
 
-
-
+foreign import ccall unsafe "extra_gc_stats_clear" clearExtraData :: IO ()
