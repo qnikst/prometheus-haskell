@@ -32,6 +32,7 @@ import GHC.Stats (RTSStats(..), GCDetails(..), getRTSStatsEnabled, getRTSStats)
 #endif
 import qualified GHC.Stats as Stats
 import Prometheus
+import Prometheus.Metric.GHC.Internal
 
 
 data GHCMetrics = GHCMetrics
@@ -55,6 +56,7 @@ ghcMetricsWithLabels labels = Metric (do
 #else
             getRTSStats
 #endif
+        extra <- getExtraStats
         concat <$> mapM (\f -> f labels stats) ghcCollectors
     )
   else return (GHCMetrics, return [])

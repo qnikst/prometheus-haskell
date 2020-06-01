@@ -25,6 +25,7 @@ library
   default-language:    Haskell2010
   exposed-modules:
       Prometheus.Metric.GHC
+      Prometheus.Metric.GHC.Internal
   build-depends:
       base               >=4.7 && <5
     , prometheus-client  >=1.0.0 && <1.1
