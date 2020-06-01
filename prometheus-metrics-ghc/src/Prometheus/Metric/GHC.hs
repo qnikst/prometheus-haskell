@@ -49,12 +49,12 @@ ghcMetricsWithLabels labels = Metric (do
         stats <-
             getRTSStats
         extra <- getExtraStats
-        concat <$> mapM (\f -> f labels stats) ghcCollectors
+        pure $ concatMap (\f -> f labels stats) ghcCollectors
     )
   else return (GHCMetrics, return [])
   )
 
-ghcCollectors :: [LabelPairs -> RTSStats -> IO [SampleGroup]]
+ghcCollectors :: [LabelPairs -> RTSStats -> [SampleGroup]]
 ghcCollectors = [
       statsCollector
             "ghc_gcs_total"
@@ -222,15 +222,15 @@ rtsTimeToSeconds :: Stats.RtsTime -> Fixed E9
 rtsTimeToSeconds = (/ 1e9) . fromIntegral
 
 statsCollector :: Show a
-               => Text -> Text -> SampleType -> (RTSStats -> a) -> LabelPairs -> RTSStats -> IO [SampleGroup]
+               => Text -> Text -> SampleType -> (RTSStats -> a) -> LabelPairs -> RTSStats -> [SampleGroup]
 statsCollector name help sampleType stat labels rtsStats =
     showCollector name help sampleType (stat rtsStats) labels
 
-showCollector :: Show a => Text -> Text -> SampleType -> a -> LabelPairs -> IO [SampleGroup]
-showCollector name help sampleType value labels = do
+showCollector :: Show a => Text -> Text -> SampleType -> a -> LabelPairs -> [SampleGroup]
+showCollector name help sampleType value labels =
     let info = Info name help
-    let valueBS = BS.fromString $ show value
-    return [SampleGroup info sampleType [Sample name labels valueBS]]
+        valueBS = BS.fromString $ show value
+    in [SampleGroup info sampleType [Sample name labels valueBS]]
 
 foreign import ccall "set_extra_gc_hook" setGCHook :: IO ()
 
