@@ -13,6 +13,15 @@ main = do
   ... application logic
 ```
 
+To make metrics available you need to add add `+RTS -T` to the program command line:
+```
+./my-program +RTS -T -RTS
+```
+Or use system environment variable `GHCRTS`:
+```
+GHCRTS=-T ./my-program
+```
+
 Then you can output metrics by any available method (check [prometheus-client documentation](https://hackage.haskell.org/package/prometheus-client)
 for the full list).
 

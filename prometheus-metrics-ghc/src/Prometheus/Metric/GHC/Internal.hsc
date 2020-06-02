@@ -16,6 +16,7 @@ import Foreign.Ptr
 
 #include "gc_extra.h"
 
+-- | Populate structure.
 foreign import ccall "populate_gc_extra" populate_gc_extra :: Ptr () -> IO ()
 
 -- | Extra data.

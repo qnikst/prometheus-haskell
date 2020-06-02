@@ -1,9 +1,7 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# language OverloadedStrings #-}
-{-# language CPP #-}
 {-# language NumDecimals #-}
-
 -- | This module defines a metrics that exposes statistics from the GHC runtime
 -- system ("GHC.Conc", "GHC.Stats").
 --
@@ -27,13 +25,19 @@ import qualified GHC.Stats as Stats
 import Prometheus
 import Prometheus.Metric.GHC.Internal
 
+-- | Garbage collection metrics handle.
 data GHCMetrics = GHCMetrics
 
+-- | Basic ghc metrics, without extra labels.
 ghcMetrics :: Metric GHCMetrics
 ghcMetrics = ghcMetricsWithLabels []
 
+-- | GHC metrics accompanied with provided metrics. Such
+-- metrics can be used for later analysis.
+--
+-- >>> register $ ghcMetricsWithLabels [("environment", "production")]
 ghcMetricsWithLabels :: LabelPairs -> Metric GHCMetrics
-ghcMetricsWithLabels labels = Metric (do
+ghcMetricsWithLabels labels = Metric $ do
   statsEnabled <-
     getRTSStatsEnabled
   if statsEnabled
@@ -46,10 +50,13 @@ ghcMetricsWithLabels labels = Metric (do
         pure $ ghcCollectors labels stats
           <> concat (zipWith (gcDetails labels) [0..] extra))
   else return (GHCMetrics, return [])
-  )
 
-
-gcDetails :: LabelPairs -> Int -> GCExtra -> [SampleGroup]
+-- | Details about each GC.
+gcDetails
+  :: LabelPairs -- ^ Default labels
+  -> Int -- ^ Generation number
+  -> GCExtra -- ^ Extra GC info structure
+  -> [SampleGroup]
 gcDetails labels gen GCExtra{..} = 
     [ statsCollector
             "ghc_gcdetails_allocated_bytes"
@@ -117,7 +124,7 @@ gcDetails labels gen GCExtra{..} =
                => Text -> Text -> SampleType -> a -> SampleGroup
     statsCollector = showCollector (("gen", pack (show gen)):labels)
 
-
+-- | Common GC values.
 ghcCollectors :: LabelPairs -> RTSStats -> [SampleGroup]
 ghcCollectors labels RTSStats{..} = [
       statsCollector
@@ -225,6 +232,8 @@ showCollector labels name help sampleType value =
         valueBS = BS.fromString $ show value
     in SampleGroup info sampleType [Sample name labels valueBS]
 
+-- | Setup additional hooks.
 foreign import ccall "set_extra_gc_hook" setGCHook :: IO ()
 
+-- | Clear statistics.
 foreign import ccall unsafe "extra_gc_stats_clear" clearExtraData :: IO ()
