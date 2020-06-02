@@ -1,5 +1,12 @@
 # Change Log
 
+## 1.1.0
+
+- Introduce metrics gathering via a C hook.
+- Gather maximum in a window values for gcdetails (see Readme).
+- Drop old GHC support.
+- Simplify internals.
+
 ## 1.0.1
 
 - Allow GHC metrics to be labeled via `ghcMetricsWithLabels`.
