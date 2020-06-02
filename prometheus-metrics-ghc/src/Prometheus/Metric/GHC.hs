@@ -162,7 +162,7 @@ ghcCollectors labels RTSStats{..} = [
             max_mem_in_use_bytes
     , statsCollector
             "ghc_cumulative_live_bytes_total"
-            "Sum of live bytes across all major GCs. Divided by major_gcs gives the average live data over the lifetime of the program."
+            "Sum of live bytes across all major GCs. Divided by ghc_gc_major_gcs_total gives the average live data over the lifetime of the program."
             CounterType
             cumulative_live_bytes
     , statsCollector
