@@ -11,8 +11,18 @@ author:              Will Coster
 maintainer:          willcoster@gmail.com
 copyright:           2015 Will Coster, 2020 Alexander Vershilov
 category:            Network
-build-type:          Simple
-cabal-version:       >=1.10
+build-type:          Custom
+cabal-version:       >=2.0
+extra-source-files:  CHANGELOG.md
+                     Readme.markdown
+                     img/1.png
+                     img/2.png
+
+custom-setup
+  setup-depends:
+      Cabal
+    , base
+    , cabal-doctest >=1.0.2 && <1.1
 
 source-repository upstream
   type:     git
@@ -37,13 +47,14 @@ library
     , text
   ghc-options: -Wall
 
-test-suite doctest
-  type:                 exitcode-stdio-1.0
-  default-language:     Haskell2010
-  hs-source-dirs:       tests
-  ghc-options:          -Wall
-  main-is:              doctest.hs
+test-suite doctests
+  buildable: True
+  type: exitcode-stdio-1.0
+  main-is: doctest.hs
+  hs-source-dirs: tests
+  autogen-modules: Build_doctests
+  ghc-options: -Wall
   build-depends:
       base               >=4.11 && <5
     , doctest
-    , prometheus-client
+  default-language: Haskell2010

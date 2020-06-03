@@ -106,6 +106,11 @@ rate(ghc_gc_cpu_seconds_total[2m])/rate(ghc_gc_elapsed_seconds_total[2m])
 ```
 Tells if there was a benefit from the parallel GC.
 
+## Performance considerations.
+
+Current package does not affect performance of the program. Metrics are gathered in
+a constant memory with a small abount of cpu work that is much smaller than cpu work
+during GC. If you are interseted in more details you may check [benchmark section](https://github.com/qnikst/prometheus-client/prometheus-metrics-ghc/benchmarks/Readme.markdown).
 
 ## Contributing.
 

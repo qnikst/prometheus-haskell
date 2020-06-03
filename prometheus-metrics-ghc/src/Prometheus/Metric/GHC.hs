@@ -9,7 +9,6 @@
 -- command line flags and the following must be added somewhere near the
 -- beginning of the main method:
 --
--- >>> register ghcMetrics
 module Prometheus.Metric.GHC (
     GHCMetrics
 ,   ghcMetrics
@@ -25,10 +24,16 @@ import qualified GHC.Stats as Stats
 import Prometheus
 import Prometheus.Metric.GHC.Internal
 
+-- $setup
+-- >>> :set -XOverloadedStrings
+-- >>> import Prometheus
+
 -- | Garbage collection metrics handle.
 data GHCMetrics = GHCMetrics
 
 -- | Basic ghc metrics, without extra labels.
+--
+-- >>> register ghcMetrics
 ghcMetrics :: Metric GHCMetrics
 ghcMetrics = ghcMetricsWithLabels []
 
@@ -36,6 +41,7 @@ ghcMetrics = ghcMetricsWithLabels []
 -- metrics can be used for later analysis.
 --
 -- >>> register $ ghcMetricsWithLabels [("environment", "production")]
+--
 ghcMetricsWithLabels :: LabelPairs -> Metric GHCMetrics
 ghcMetricsWithLabels labels = Metric $ do
   statsEnabled <-

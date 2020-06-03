@@ -7,6 +7,9 @@
 // maximum generation available.
 uint32_t total_gens = 2;
 
+// Clear extra statistics entry.
+void extra_gc_stats_clear();
+
 //
 // Extra stats that are not available normally
 // slightly modified version on GCGetails from RTS.
