@@ -1,2 +1,2 @@
 packages: */*.cabal
-optional-packages: */*.cabal
+optional-packages: vendor/*/*.cabal

@@ -48,7 +48,7 @@ library
   ghc-options: -Wall
 
 test-suite doctests
-  buildable: True
+  buildable: False
   type: exitcode-stdio-1.0
   main-is: doctest.hs
   hs-source-dirs: tests
