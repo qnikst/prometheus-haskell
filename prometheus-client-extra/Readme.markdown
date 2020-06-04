@@ -7,7 +7,7 @@ application.
 
 ## Contents
 
-1. <a href="#href-counter">Integer counters</a>
+1. <a href="#integer-counter">Integer counters</a>
 
 ## <a id="integer-counter"> Integer counter</a>
 
