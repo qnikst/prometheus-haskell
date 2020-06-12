@@ -60,12 +60,11 @@ getExtraStats :: IO [GCExtra]
 getExtraStats = do
   allocaBytes (2 * #size GCExtra) $ \p -> do
     populate_gc_extra p
-    gc0 <- fetch p
-    gc1 <- fetch (p `plusPtr` #size GCExtra)
+    gc0 <- fetch 0 p
+    gc1 <- fetch 1 (p `plusPtr` #size GCExtra)
     return [gc0, gc1]
   where
-    fetch p = do
-      let gcdetails_gen = 0
+    fetch gcdetails_gen p = do
       gcdetails_allocated_bytes <- (# peek GCExtra, allocated_bytes) p
       gcdetails_live_bytes <- (# peek GCExtra, live_bytes) p
       gcdetails_large_objects_bytes <-
