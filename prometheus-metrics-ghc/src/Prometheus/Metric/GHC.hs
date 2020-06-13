@@ -150,7 +150,7 @@ gcDetails labels gen GCExtraGen{..} =
         "ghc_gcdetails_sync_elapsed_max_seconds"
         "The time elapsed during GC itself"
         GaugeType
-        (rtsTimeToSeconds gcdetails_sync_elapsed_total_ns)
+        (rtsTimeToSeconds gcdetails_sync_elapsed_max_ns)
     , statsCollector
         "ghc_gcdetails_sync_elapsed_total_seconds"
         "The time elapsed during GC itself"

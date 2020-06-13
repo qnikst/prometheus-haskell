@@ -1,5 +1,6 @@
 #include "Rts.h"
 #include "gc_extra.h"
+#include "memory.h"
 
 #define max(a,b) \
    ({ __typeof__ (a) _a = (a); \
@@ -62,7 +63,7 @@ void extra_gc_hook(const struct GCDetails_ *stats) {
   info_extra->compact_bytes_max = max(info_extra->compact_bytes_max, stats->compact_bytes);
   info_extra->compact_bytes_current = stats->compact_bytes;
 
-  info_extra->slop_bytes_max = max(info_extra->compact_bytes_max, stats->slop_bytes);
+  info_extra->slop_bytes_max = max(info_extra->slop_bytes_max, stats->slop_bytes);
   info_extra->slop_bytes_current = stats->slop_bytes;
 
   info_extra->mem_in_use_bytes_max = max(info_extra->mem_in_use_bytes_max, stats->mem_in_use_bytes);
@@ -104,5 +105,6 @@ void extra_gc_stats_clear() {
 void set_extra_gc_hook() {
   old_hook = rtsConfig.gcDoneHook;
   rtsConfig.gcDoneHook = extra_gc_hook;
-  extra_gc_stats_clear();
+  memset(info_extra, 0, sizeof(info_extra[0]));
+  memset(info_gen, 0, 2*sizeof(info_gen[0]));
 }
