@@ -32,7 +32,7 @@ The results that I had:
 
 ```
 benchmarking 10/no-metrics
-ggtime                 12.19 s    (11.39 s .. 12.89 s)
+time                 12.19 s    (11.39 s .. 12.89 s)
                      0.999 R²   (0.999 R² .. 1.000 R²)
 mean                 12.41 s    (12.24 s .. 12.55 s)
 std dev              173.6 ms   (63.70 ms .. 222.6 ms)
