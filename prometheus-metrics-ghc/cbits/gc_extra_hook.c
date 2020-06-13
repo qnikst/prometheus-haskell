@@ -78,7 +78,7 @@ void extra_gc_hook(const struct GCDetails_ *stats) {
 void populate_gc_extra(struct GCExtraGen_ targets[2], struct GCExtra_ target_extra[1]) {
    targets[0] = info_gen[0];
    targets[1] = info_gen[1];
-   target_extra = info_extra;
+   target_extra[0] = info_extra[0];
 }
 
 // Clear runtime statistics. You may need this when you want to clear current window,
