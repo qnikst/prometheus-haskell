@@ -5,6 +5,7 @@
 module Prometheus.Metric.GHC.Internal
   ( getExtraStats
   , GCExtra(..)
+  , GCExtraGen(..)
   ) where
 
 import Data.Int
@@ -17,18 +18,11 @@ import Foreign.Ptr
 #include "gc_extra.h"
 
 -- | Populate structure.
-foreign import ccall "populate_gc_extra" populate_gc_extra :: Ptr () -> IO ()
+foreign import ccall "populate_gc_extra" populate_gc_extra :: Ptr () -> Ptr () -> IO ()
 
--- | Extra data.
-data GCExtra = GCExtra {
-    -- | The generation number of this GC
-    gcdetails_gen :: Word32
-    -- | Number of threads used in this GC
-  , gcdetails_allocated_bytes :: Word64
-    -- | Total amount of live data in the heap (incliudes large + compact data).
-    -- Updated after every GC. Data in uncollected generations (in minor GCs)
-    -- are considered live.
-  , gcdetails_live_bytes :: Word64
+-- | Extra data about memory
+data GCExtra = GCExtra
+  { gcdetails_live_bytes :: Word64
     -- | Total amount of live data in large objects
   , gcdetails_large_objects_bytes :: Word64
     -- | Total amount of live data in compact regions
@@ -37,50 +31,75 @@ data GCExtra = GCExtra {
   , gcdetails_slop_bytes :: Word64
     -- | Total amount of memory in use by the RTS
   , gcdetails_mem_in_use_bytes :: Word64
+  }
+
+-- | Extra data about each GC generation.
+data GCExtraGen = GCExtraGen {
+    -- | The generation number of this GC
+    gcdetails_gen :: Word32
+  , gcdetails_count :: Word64
+    -- | Total amount of live data in the heap (includes large + compact data).
+    -- Updated after every GC. Data in uncollected generations (in minor GCs)
+    -- are considered live.
+  , gcdetails_allocated_max_bytes :: Word64
+  , gcdetails_allocated_total_bytes :: Word64
     -- | Total amount of data copied during this GC
-  , gcdetails_copied_bytes :: Word64
+  , gcdetails_copied_max_bytes :: Word64
+  , gcdetails_copied_total_bytes :: Word64
     -- | In parallel GC, the max amount of data copied by any one thread.
     -- Deprecated.
   , gcdetails_par_max_copied_bytes :: Word64
     -- | In parallel GC, the amount of balanced data copied by all threads
   , gcdetails_par_balanced_copied_bytes :: Word64
     -- | The time elapsed during synchronisation before GC
-  , gcdetails_sync_elapsed_ns :: RtsTime
+  , gcdetails_sync_elapsed_total_ns :: RtsTime
+  , gcdetails_sync_elapsed_max_ns :: RtsTime
     -- | The CPU time used during GC itself
-  , gcdetails_cpu_ns :: RtsTime
+  , gcdetails_cpu_total_ns :: RtsTime
+  , gcdetails_cpu_max_ns :: RtsTime
     -- | The time elapsed during GC itself
-  , gcdetails_elapsed_ns :: RtsTime
-  , total_sync_elapsed_ns :: RtsTime -- Sum of CPU time elapsed during synchronization before GC.
+  , gcdetails_elapsed_total_ns :: RtsTime
+  , gcdetails_elapsed_max_ns :: RtsTime
   } deriving ( Read
              , Show
              , Generic
              )
 
-getExtraStats :: IO [GCExtra]
+getExtraStats :: IO (GCExtra, [GCExtraGen])
 getExtraStats = do
-  allocaBytes (2 * #size GCExtra) $ \p -> do
-    populate_gc_extra p
-    gc0 <- fetch 0 p
-    gc1 <- fetch 1 (p `plusPtr` #size GCExtra)
-    return [gc0, gc1]
-  where
-    fetch gcdetails_gen p = do
-      gcdetails_allocated_bytes <- (# peek GCExtra, allocated_bytes) p
-      gcdetails_live_bytes <- (# peek GCExtra, live_bytes) p
-      gcdetails_large_objects_bytes <-
-        (# peek GCExtra, large_objects_bytes) p
-      gcdetails_compact_bytes <- (# peek GCExtra, compact_bytes) p
-      gcdetails_slop_bytes <- (# peek GCExtra, slop_bytes) p
-      gcdetails_mem_in_use_bytes <- (# peek GCExtra, mem_in_use_bytes) p
-      gcdetails_copied_bytes <- (# peek GCExtra, copied_bytes) p
-      gcdetails_par_max_copied_bytes <-
-        (# peek GCExtra, par_max_copied_bytes) p
-      gcdetails_par_balanced_copied_bytes <-
-        (# peek GCExtra, par_balanced_copied_bytes) p
-      gcdetails_sync_elapsed_ns <- (# peek GCExtra, sync_elapsed_ns) p
-      gcdetails_cpu_ns <- (# peek GCExtra, cpu_ns) p
-      gcdetails_elapsed_ns <- (# peek GCExtra, elapsed_ns) p
-      total_sync_elapsed_ns <- (# peek GCExtra, elapsed_ns) p
-      return GCExtra{..}
+  allocaBytes (#size GCExtra) $ \p0 -> do
+    allocaBytes (2 * #size GCExtraGen) $ \p1 -> do
+      populate_gc_extra p1 p0
+      extra <- fetchExtra p0
+      gc0 <- fetch 0 p1
+      gc1 <- fetch 1 (p1 `plusPtr` #size GCExtraGen)
+      return (extra, [gc0, gc1])
+    where
+      fetchExtra p = do
+        gcdetails_live_bytes <- (# peek GCExtra, live_bytes_max) p
+        gcdetails_large_objects_bytes <-
+          (# peek GCExtra, large_objects_bytes_max) p
+        gcdetails_compact_bytes <- (# peek GCExtra, compact_bytes_max) p
+        gcdetails_slop_bytes <- (# peek GCExtra, slop_bytes_max) p
+        gcdetails_mem_in_use_bytes <- (# peek GCExtra, mem_in_use_bytes_max) p
+        pure GCExtra{..}
+      fetch i p = do
+        let gcdetails_gen = i
+        gcdetails_count <- (# peek GCExtraGen, count) p
+        gcdetails_allocated_max_bytes <- (# peek GCExtraGen, allocated_bytes_max) p
+        gcdetails_allocated_total_bytes <- (# peek GCExtraGen, allocated_bytes_total) p
+        gcdetails_copied_max_bytes <- (# peek GCExtraGen, copied_bytes_max) p
+        gcdetails_copied_total_bytes <- (# peek GCExtraGen, copied_bytes_total) p
+        gcdetails_par_max_copied_bytes <-
+          (# peek GCExtraGen, par_max_copied_bytes) p
+        gcdetails_par_balanced_copied_bytes <-
+          (# peek GCExtraGen, par_balanced_copied_bytes) p
+        gcdetails_cpu_max_ns <- (# peek GCExtraGen, cpu_ns_max) p
+        gcdetails_cpu_total_ns <- (# peek GCExtraGen, cpu_ns_total) p
+        gcdetails_elapsed_max_ns <- (# peek GCExtraGen, elapsed_ns_max) p
+        gcdetails_elapsed_total_ns <- (# peek GCExtraGen, elapsed_ns_total) p
+        gcdetails_sync_elapsed_max_ns <- (# peek GCExtraGen, sync_elapsed_ns_max) p
+        gcdetails_sync_elapsed_total_ns <- (# peek GCExtraGen, sync_elapsed_ns_total) p
+        return GCExtraGen{..}
 
 type RtsTime = Int64

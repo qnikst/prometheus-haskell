@@ -55,6 +55,18 @@ for the full list).
 `ghc_max_slop_bytes` | Maximum slop unused memory allocated due to technical purposes: block sizes, alignments.
 `ghc_max_mem_in_use_bytes` | Maximum memory in use by the RTS
 
+**Window values**
+The maximum value in a window, currently window is equal to the time between scrapes, so
+it shows maximum value between previous and current.
+
+  Option | Description |
+   ---   | :--- 
+ `ghc_gcdetails_live_bytes` | Total amount of live data in the heap (including large + compact data)
+ `ghc_gcdetails_large_objects_bytes` | Total amount of live data in large objects
+ `ghc_gcdetails_compact_bytes` | Total amount of live data in compact regions
+ `ghc_gcdetails_slop_bytes` | Total amount of slop (wasted memory)
+ `ghc_gcdetails_mem_in_use_bytes` | Total amount of memory in use by the RTS
+
 **Per generation values**:
    All values below have `gen` label telling what generation the value belongs to. So you can select or
    reduce values by their generation. Provided statistics is a maximum value that was seen between
@@ -62,18 +74,18 @@ for the full list).
 
   Option | Description |
    ---   | :--- 
- `ghc_gcdetails_allocated_bytes` | Number of bytes allocated since the previous GC
- `ghc_gcdetails_live_bytes` | Total amount of live data in the heap (including large + compact data)
- `ghc_gcdetails_large_objects_bytes` | Total amount of live data in large objects
- `ghc_gcdetails_compact_bytes` | Total amount of live data in compact regions
- `ghc_gcdetails_slop_bytes` | Total amount of slop (wasted memory)
- `ghc_gcdetails_mem_in_use_bytes` | Total amount of memory in use by the RTS
- `ghc_gcdetails_copied_bytes` | Total amount of data copied during this GC
+ `ghc_gcdetails_allocated_total_bytes` | Number of bytes allocated in this generation
+ `ghc_gcdetails_allocated_max_bytes` | Max number of bytes allocated in this generation since previous scrape
+ `ghc_gcdetails_copied_total_bytes` | Total amount of data copied in this generation
+ `ghc_gcdetails_copied_max_bytes` | Max amount of data copied in this generation scince previous scrape
  `ghc_gcdetails_par_max_copied_bytes` | In parallel GC, the max amount of data copied by any one thread
  `ghc_gcdetails_sync_elapsed_seconds` | The time elapsed during synchronisation before GC
- `ghc_gcdetails_cpu_seconds` | The CPU time used during GC itself
- `ghc_gcdetails_elapsed_seconds` | The time elapsed during GC itself
- `ghc_gcdetails_elapsed_seconds` | The time elapsed during GC itself
+ `ghc_gcdetails_cpu_total_seconds` | The CPU time used in this generation
+ `ghc_gcdetails_cpu_max_seconds` |  -//-
+ `ghc_gcdetails_elapsed_total_seconds` | The time elapsed during GC in this generation
+ `ghc_gcdetails_elapsed_max_seconds` | -//-
+ `ghc_gcdetails_sync_elapsed_total_seconds` | The time spent on sync GC in this generation
+ `ghc_gcdetails_sync_elapsed_max_seconds` | -//-
 
 If for any reason there is metric that 
 is package does not provide but it exists, feel free to open a [bug report](http://github.com/qnikst/prometheus-client/issues).

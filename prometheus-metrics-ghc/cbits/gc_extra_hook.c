@@ -14,7 +14,10 @@ extern RtsConfig rtsConfig;
 // __N.B.__ Currently we have hardcoded data, this is actually very bad,
 // it would be better if we can support any number of generation passed
 // with -g.
-struct GCExtra_ infos[2];
+struct GCExtraGen_ info_gen[2];
+
+// Extra information about memory usage.
+struct GCExtra_ info_extra[1];
 
 // Old GC, hook to call after our one. We don't want to loose
 // hooks in case someone else has used them.
@@ -29,48 +32,72 @@ void  (*old_hook)(const struct GCDetails_ *stats) = NULL;
 // this way we still can get some insite on the statistics but it comes at a
 // cost, we need some experimenting with that.
 void extra_gc_hook(const struct GCDetails_ *stats) {
-  struct GCExtra_ * info = &infos[stats->gen];
-  info->allocated_bytes = max(info->allocated_bytes, stats->allocated_bytes);
-  info->live_bytes = max(info->live_bytes, stats->live_bytes);
-  info->large_objects_bytes = max(info->large_objects_bytes, stats->large_objects_bytes);
-  info->compact_bytes = max(info->compact_bytes, stats->compact_bytes);
-  info->slop_bytes = max(info->compact_bytes, stats->slop_bytes);
-  info->mem_in_use_bytes = max(info->mem_in_use_bytes, stats->mem_in_use_bytes);
-  info->copied_bytes = max(info->copied_bytes, stats->copied_bytes);
+  struct GCExtraGen_ * info = &info_gen[stats->gen];
+
+  info->count += 1;
+  info->allocated_bytes_max = max(info->allocated_bytes_max, stats->allocated_bytes);
+  info->allocated_bytes_total += stats->allocated_bytes;
+
+  info->copied_bytes_max = max(info->copied_bytes_max, stats->copied_bytes);
+  info->copied_bytes_total += stats->copied_bytes;
+
   info->par_max_copied_bytes = max(info->par_max_copied_bytes, stats->par_max_copied_bytes);
   info->par_balanced_copied_bytes= max(info->par_balanced_copied_bytes, stats->par_balanced_copied_bytes);
-  info->sync_elapsed_ns= max(info->sync_elapsed_ns, stats->sync_elapsed_ns);
-  info->cpu_ns= max(info->cpu_ns, stats->cpu_ns);
-  info->elapsed_ns = max(info->elapsed_ns, stats->elapsed_ns);
-  info->total_sync_elapsed_ns += stats->sync_elapsed_ns;
+
+  info->elapsed_ns_max = max(info->elapsed_ns_max, stats->elapsed_ns);
+  info->elapsed_ns_total += stats->elapsed_ns;
+
+  info->cpu_ns_max = max(info->cpu_ns_max, stats->cpu_ns);
+  info->cpu_ns_total += stats->cpu_ns;
+
+  info->sync_elapsed_ns_total = max(info->sync_elapsed_ns_total, stats->sync_elapsed_ns);
+  info->sync_elapsed_ns_total += stats->sync_elapsed_ns;
+
+  info_extra->live_bytes_max = max(info_extra->live_bytes_max, stats->live_bytes);
+  info_extra->live_bytes_current = stats->live_bytes;
+
+  info_extra->large_objects_bytes_max = max(info_extra->large_objects_bytes_max, stats->large_objects_bytes);
+  info_extra->large_objects_bytes_current = stats->large_objects_bytes;
+
+  info_extra->compact_bytes_max = max(info_extra->compact_bytes_max, stats->compact_bytes);
+  info_extra->compact_bytes_current = stats->compact_bytes;
+
+  info_extra->slop_bytes_max = max(info_extra->compact_bytes_max, stats->slop_bytes);
+  info_extra->slop_bytes_current = stats->slop_bytes;
+
+  info_extra->mem_in_use_bytes_max = max(info_extra->mem_in_use_bytes_max, stats->mem_in_use_bytes);
+  info_extra->mem_in_use_bytes_current = stats->mem_in_use_bytes;
+
   if (old_hook) {
     old_hook(stats);
   }
 }
 
 // Load current data into the remote structures.
-void populate_gc_extra(struct GCExtra_ *targets) {
-   targets[0] = infos[0];
-   targets[1] = infos[1];
+void populate_gc_extra(struct GCExtraGen_ targets[2], struct GCExtra_ target_extra[1]) {
+   targets[0] = info_gen[0];
+   targets[1] = info_gen[1];
+   target_extra = info_extra;
 }
 
 // Clear runtime statistics. You may need this when you want to clear current window,
 // and start a new one, that allows to get window based maximum.
 void extra_gc_stats_clear() {
   for (int i=0;i<2;i++) {
-    infos[i].allocated_bytes = 0;
-    infos[i].live_bytes = 0;
-    infos[i].large_objects_bytes = 0;
-    infos[i].compact_bytes = 0;
-    infos[i].slop_bytes = 0;
-    infos[i].mem_in_use_bytes = 0;
-    infos[i].copied_bytes = 0;
-    infos[i].par_max_copied_bytes = 0;
-    infos[i].par_balanced_copied_bytes = 0;
-    infos[i].sync_elapsed_ns = 0;
-    infos[i].cpu_ns= 0;
-    infos[i].elapsed_ns = 0;
+    info_gen[i].allocated_bytes_max = 0;
+    info_gen[i].copied_bytes_max = 0;
+    info_gen[i].par_max_copied_bytes = 0;
+    info_gen[i].par_balanced_copied_bytes = 0;
+    info_gen[i].sync_elapsed_ns_max = 0;
+    info_gen[i].cpu_ns_max = 0;
+    info_gen[i].elapsed_ns_max = 0;
   }
+
+  info_extra->live_bytes_max = info_extra->live_bytes_current;
+  info_extra->large_objects_bytes_max = info_extra->large_objects_bytes_current;
+  info_extra->compact_bytes_max = info_extra->compact_bytes_current;
+  info_extra->slop_bytes_max = info_extra->slop_bytes_current;
+  info_extra->mem_in_use_bytes_max = info_extra->mem_in_use_bytes_current;
 }
 
 // Set new gc hook, old one is preserved.
