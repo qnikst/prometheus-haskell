@@ -2,6 +2,7 @@ resolver: lts-16.1
 packages:
 - example
 - prometheus-client
+- prometheus-client-extra
 - prometheus-metrics-ghc
 - prometheus-proc
 - wai-middleware-prometheus
