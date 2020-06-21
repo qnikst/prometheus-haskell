@@ -8,6 +8,7 @@ application.
 ## Contents
 
 1. <a href="#integer-counter">Integer counters</a>
+2. <a href="#integer-gauge">Integer gauge</a>
 
 ## <a id="integer-counter"> Integer counter</a>
 
@@ -51,4 +52,14 @@ IntCounter is about 10% faster. But we demand better benchmarks here.
 |std dev              299.2 ps   (247.3 ps .. 443.1 ps)      | std dev              579.5 ps   (326.9 ps .. 996.0 ps)
 |variance introduced by outliers: 23% (moderately inflated)  | variance introduced by outliers: 49% (moderately inflated)
 ```
+
+## <a id="integer-gauge"> Integer gauge</a>
+
+Special gauge that shares API with it's ordinary counterpart, but it works
+with `Int` values instead. It allows to have more precise intention about the
+values and use efficient CPU instructions and 'inplace' implementation.
+
+Performace is basically 10% faster comparing to the ordinary Gauge, but it
+doesn't allocate memory when storing the values.
+
 
