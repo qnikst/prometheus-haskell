@@ -28,6 +28,7 @@ library
   exposed-modules:
     Prometheus.Metric.IntCounter
     Prometheus.Metric.IntGauge
+    Prometheus.Metric.WindowGauge
   -- other-modules:
   -- other-extensions:
   build-depends:       base >=4.11 && <5,
