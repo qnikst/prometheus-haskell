@@ -34,8 +34,10 @@ data IntGauge = MkGauge (MutableByteArray# RealWorld)
 -- | Create a new gauge metric with a given name and help string.
 gauge :: Info -> Metric IntGauge
 gauge info = Metric $ do
-  atomic <- IO $ \s ->
-    case newByteArray# size s of { (# s', arr #) -> (# s', MkGauge arr #) }
+  atomic <- IO $ \s0 ->
+    case newByteArray# size s0 of
+      (# s1, arr# #) -> case writeIntArray# arr# 0# 0# s1 of
+        s2# -> (# s2#, MkGauge arr# #)
   return (atomic, collectGauge info atomic)
   where !(I# size) = SIZEOF_HSINT
 
