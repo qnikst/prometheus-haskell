@@ -28,6 +28,11 @@ import qualified Data.ByteString.UTF8 as BS
 #define SIZEOF_HSINT  INT_SIZE_IN_BYTES
 #endif
 
+-- $setup
+--
+-- >>> :set -XOverloadedStrings
+
+
 -- | Efficient gauge for the integral value.
 -- Uses atomic non-blocking operations.
 data WinGauge = MkGauge (MutableByteArray# RealWorld)
@@ -95,12 +100,25 @@ getGauge (MkGauge arr#) = liftIO $ IO \s0# ->
   case readIntArray#  arr# 0# s0# of
    { (# s', i #) -> (# s', I# i #) }
 
+-- | Persist current max value, and reset it to zero. So the 
+-- last value is not persisted forever.
+--
+-- >>> g <- register $ gauge (Info "a" "b") 
+-- >>> setGauge g 42
+-- >>> setGauge g 3 
+-- >>> i <- refreshGauge g
+-- >>> j <- refreshGauge g
+-- >>> k <- refreshGauge g
+-- >>> print (i, j, k)
+-- (42,3,0)
+-- 
 refreshGauge :: MonadIO m => WinGauge -> m Int
 refreshGauge (MkGauge arr#) = liftIO $ IO \s0# ->
   case readIntArray#  arr# 1# s0# of
     (# s1#, i# #) -> case readIntArray# arr# 0# s1# of
       (# s2#, j# #) -> case atomicWriteIntArray# arr# 0# i# s2# of 
-         s3# -> (# s3#, I# j# #)
+         s3# -> case atomicWriteIntArray# arr# 1# 0# s3# of
+           s4# -> (# s4#, I# j# #)
 
 collectGauge :: Info -> WinGauge -> IO [SampleGroup]
 collectGauge info c = do
